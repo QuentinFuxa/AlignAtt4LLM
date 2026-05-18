@@ -95,6 +95,13 @@ source it attends**, and prints that live on stderr as each token is
 committed or held. It is a pure read of the signal the policy already uses,
 so it does not change what the model emits.
 
+![Live attention trace: tokens commit in green; a HOLD fires when a draft token's attention mass sits on source that has not arrived yet](src/assets/demo_trace_zh.gif)
+
+*Real capture (A100, 18 s clip, `--target zh --chunk-ms 640
+--translation-alignatt-min-source-mass 0.05`): watch "行动" get HELD in chunk
+18 with 0.75 of its attention on inaccessible source, then commit in chunk 19
+once the audio for it has arrived.*
+
 Standalone Gemma AlignAtt ASR. Watch where each transcript token lands on the
 audio timeline (`src@frame (seconds)`):
 
