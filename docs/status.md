@@ -14,3 +14,8 @@ dataset audio, historical Docker packaging, and local experiment logs.
 For new claims, keep manifests, score files, and exact commands. Run one local
 clip before broader sweeps, and run an A100 smoke before reporting new
 inference results.
+
+Known constraints and the capture-corruption evidence live in
+[limitations.md](limitations.md); historical anchors in [results.md](results.md);
+the speed-figure artifact in [benchmarks/](benchmarks/); parsed official
+baseline scores in [baselines/](baselines/).

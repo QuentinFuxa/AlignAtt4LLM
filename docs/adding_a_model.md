@@ -38,9 +38,11 @@ You supply only:
 
 2. **Write a `VLLMAttentionSpec`.** `make_standard_decoder_patched_forward`
    covers the common vLLM attention shape, including the optional per-head
-   QK-norm branch (the view-based reshape Qwen3 uses, applied when
-   `self.qk_norm` is set). Llama-class attention leaves it off; Qwen3 turns it on.
-   Write a bespoke forward only when the attention reshapes differently (Gemma
+   QK-norm branch. The branch is gated on the *presence* of `q_norm`/`k_norm`
+   modules (with `qk_norm` respected when the class defines that flag), because
+   vLLM's Qwen3 attention norms unconditionally and has no flag, Qwen2-class
+   gates on `self.qk_norm`, and Llama-class has no norms at all. Write a
+   bespoke forward only when the attention reshapes differently (Gemma
    uses `unflatten` plus a Gemma4 KV-sharing branch). The forward must capture
    the **post-norm, post-rotary** Q/K, otherwise the reconstructed attention is
    wrong.

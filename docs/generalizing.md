@@ -37,7 +37,7 @@ provide four pieces.
    the selected target-side query heads to the source-token positions in the
    prompt. The production vLLM path captures prompt K and decode Q/K tensors,
    then reconstructs the source block needed by the policy. See
-   `src/alignatt4llm/mt/gemma_vllm_observer.py`.
+   `src/alignatt4llm/vllm_qk/observer.py`.
 
 4. The common acceptance policy
 

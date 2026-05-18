@@ -4,7 +4,7 @@ title: "AlignAtt4LLM"
 authors:
   - family-names: Fuxa
     given-names: Quentin
-  - family-names: Machacek
+  - family-names: Macháček
     given-names: Dominik
 preferred-citation:
   type: article
@@ -12,7 +12,7 @@ preferred-citation:
   authors:
     - family-names: Fuxa
       given-names: Quentin
-    - family-names: Machacek
+    - family-names: Macháček
       given-names: Dominik
   year: 2026
   doi: 10.48550/arXiv.2606.03967

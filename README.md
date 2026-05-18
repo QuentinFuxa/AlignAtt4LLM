@@ -12,15 +12,25 @@ the runtime reconstructs target-to-source attention from selected decoder
 attention heads, and only the target prefix that is supported by accessible
 source evidence is emitted.
 
+Where the original AlignAtt and EDAtt policies read encoder-decoder
+cross-attention from HF-eager speech models, and LLM adaptations of
+simultaneous MT typically steer the model from the outside (agreement or
+prompting policies, no attention access), AlignAtt4LLM works from the
+inside of a production serving stack: it selects calibrated
+source-alignment heads per model and direction, captures the exact Q/K that
+vLLM's fused attention consumes, and recomputes only the target-to-source
+block the policy needs. The result is an attention-level simultaneity
+policy for decoder-only LLMs at serving-engine speed, with a documented
+recipe for bringing your own model.
 
 ![Chunk-synchronous AlignAtt4LLM cascade](src/assets/cascade.png)
 
-## Scope & what it brings ?
+## Scope
 
 The IWSLT implementation is end-to-end: it includes ASR, chunk-synchronous runtime code (synchronicity comes from the requirement to use [SimulStream](https://arxiv.org/abs/2512.17648)), and MT. This makes the full
 ASR + MT cascade runnable from audio input to simultaneous translation output. But the core of the innovation here is what happens in the MT part:
 
-**1.** The idea of reconstructing the attention, to know *where to cut* :
+**1.** The idea of reconstructing the attention, to know *where to cut*:
 
 <img src="src/assets/where_to_cut.png" width="500"/>
 
@@ -30,7 +40,7 @@ ASR + MT cascade runnable from audio input to simultaneous translation output. B
 <img src="src/assets/run_fast.png" width="500"/>
 
 
-**3.** The way of capturing keys and queries at runtime in [VLLM](https://github.com/vllm-project/vllm) to keep inference *really fast*
+**3.** The way of capturing keys and queries at runtime in [vLLM](https://github.com/vllm-project/vllm) to keep inference *really fast*
 
 <img src="src/assets/run_really_fast.png" width="500"/>
 
@@ -38,13 +48,52 @@ ASR + MT cascade runnable from audio input to simultaneous translation output. B
 **Thus, this package contains:**
 
 - a reproducible end-to-end cascade
-- A focus on the implementation of AlignAtt to decoders only LLMs.
+- a focus on the implementation of AlignAtt for decoder-only LLMs
+
+## Install
+
+The validated environment is a single 40 GB A100 (Linux, CUDA 12.9,
+Python 3.13) with [uv](https://docs.astral.sh/uv/). Inference and evaluation
+use two separate environments because their dependency sets conflict:
+
+```bash
+git clone https://github.com/QuentinFuxa/Alignatt4LLM
+cd Alignatt4LLM
+
+# Inference env (.venv-inference): pins the vLLM/CUDA stack and patches qwen_asr
+tools/bootstrap/setup_inference_qwen_asr_vllm.sh
+
+# Evaluation env (.venv-evaluation): OmniSTEval + XCOMET scoring
+uv venv .venv-evaluation --python 3.13
+UV_PROJECT_ENVIRONMENT=.venv-evaluation uv sync --group evaluation
+```
+
+Models are resolved from the local Hugging Face cache and are not downloaded
+automatically. For the default ASR route and the stable Gemma MT route:
+
+```bash
+huggingface-cli download Qwen/Qwen3-ASR-1.7B --revision 7278e1e70fe206f11671096ffdd38061171dd6e5
+huggingface-cli download Qwen/Qwen3-ForcedAligner-0.6B --revision c7cbfc2048c462b0d63a45797104fc9db3ad62b7
+# Gated: accept the license on huggingface.co and `huggingface-cli login` first
+huggingface-cli download google/gemma-4-E4B-it --revision 83df0a889143b1dbfc61b591bbc639540fd9ce4c
+```
+
+See [docs/reproducibility.md](docs/reproducibility.md) for the full model
+list, snapshot overrides, memory splits for the dual-engine layout, and
+[docs/limitations.md](docs/limitations.md) for the honest constraints
+(eager-mode capture requirement, vLLM version sensitivity, single-worker
+only).
+
+No GPU? The AlignAtt policy layer is fully unit-tested on CPU: 216 tests in
+about one second (`uv sync --group evaluation --group dev`, then
+`.venv-evaluation/bin/python -m pytest -q`).
 
 ## See where Gemma listens
 
-The runtime already reconstructs, for every drafted token, **where in the source it attends**.
-prints that live on stderr as each token is committed or held. It is a pure read
-of the signal the policy already uses, so it does not change what the model emits.
+The runtime already reconstructs, for every drafted token, **where in the
+source it attends**, and prints that live on stderr as each token is
+committed or held. It is a pure read of the signal the policy already uses,
+so it does not change what the model emits.
 
 Standalone Gemma AlignAtt ASR. Watch where each transcript token lands on the
 audio timeline (`src@frame (seconds)`):
@@ -125,6 +174,8 @@ and worker → register → calibrate heads) is in
 - [Data](docs/data.md)
 - [Reproducibility](docs/reproducibility.md)
 - [Results](docs/results.md)
+- [Known limitations](docs/limitations.md)
+- [Benchmarks](docs/benchmarks/README.md)
 - [Development](docs/development.md)
 
 ## Citation
