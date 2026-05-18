@@ -28,12 +28,14 @@ which is not a supported configuration for scored runs.
 
 Implication for the paper's speed figure: the published 2.5x vLLM-vs-HF-eager
 ms/token comparison was recorded with full CUDA graphs *before* this failure
-mode was understood, while all quality results ran eagerly. See
-[docs/benchmarks/README.md](benchmarks/README.md) for the artifact and the
+mode was understood, while all quality results ran eagerly. The capture-safe
+eager configuration measures **1.45x** over HF eager (same day, same GPU,
+same harness, 2026-07-02); see
+[docs/benchmarks/README.md](benchmarks/README.md) for both artifacts and the
 honest framing. Root-causing the corruption (buffer aliasing across replays
 vs. the custom-op mutation contract vs. profiler-phase capture) is open
-follow-up work; fixing it would let the speed and quality configurations
-coincide.
+follow-up work; fixing it would let the 2.5x-class speed and the scored
+quality coincide.
 
 ## vLLM version sensitivity
 
