@@ -55,7 +55,7 @@ from alignatt4llm.runtime import (
     CascadeRuntimeConfig,
     LANGUAGE_CODE_TO_NAME,
     VALID_MT_BACKEND_NAMES,
-    mt_model_name_for_backend,
+    require_mt_model_for_backend,
 )
 from alignatt4llm.source_frontier import build_source_accessibility_frontier
 from alignatt4llm.translation_variants import RenderedTranslationPrompt, TRANSLATION_VARIANTS
@@ -281,7 +281,7 @@ def _run_worker(args: argparse.Namespace) -> None:
     # translate(), so we override it per-prompt via apply_overrides.
     load_start = time.perf_counter()
     backend = build_mt_backend(
-        model_name=mt_model_name_for_backend(backend_name),
+        model_name=require_mt_model_for_backend(backend_name),
         runtime_config=runtime_config,
     )
     backend.load()

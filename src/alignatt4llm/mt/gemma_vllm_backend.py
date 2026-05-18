@@ -30,6 +30,7 @@ with MiLMMT's raw translation prompt.
 """
 from __future__ import annotations
 
+import logging
 import math
 import os
 from collections.abc import Sequence
@@ -39,6 +40,25 @@ from types import SimpleNamespace
 from typing import Any
 
 import torch
+
+LOGGER = logging.getLogger("alignatt4llm.mt.capture")
+
+# Corrupt or elided q/k capture must be loud: it silently degrades into "the
+# system never emits", which reads as broken to anyone running the cascade.
+# Each corruption kind is logged in full once per process; later occurrences
+# stay visible through the alignatt metadata counters.
+_CAPTURE_CORRUPTION_WARNED: set[str] = set()
+
+
+def _warn_capture_corruption(kind: str, message: str) -> None:
+    if kind in _CAPTURE_CORRUPTION_WARNED:
+        return
+    _CAPTURE_CORRUPTION_WARNED.add(kind)
+    LOGGER.error(
+        "%s (logged once per process; subsequent occurrences are counted in"
+        " the per-chunk alignatt metadata)",
+        message,
+    )
 
 from alignatt4llm.mt.base import (
     AlignAttDecoderPolicy,
@@ -134,6 +154,7 @@ GEMMA_SPEC = VLLMAttentionSpec(
         "rotary_emb",
         "attn",
         "o_proj",
+        "scaling",
     ),
     make_patched_forward=make_gemma_patched_forward,
 )
@@ -149,7 +170,6 @@ def _hf_hub_roots() -> list[Path]:
     for candidate in (
         os.environ.get("HF_HUB_CACHE"),
         os.path.join(os.environ.get("HF_HOME", ""), "hub") if os.environ.get("HF_HOME") else None,
-        "/home/.cache/huggingface/hub",
         os.path.join(os.path.expanduser("~/.cache/huggingface/hub")),
     ):
         if not candidate:
@@ -1204,12 +1224,34 @@ class MiLMMTVLLMMTBackend(BaseMTBackend):
             provenance_nonfinite_row_count,
             provenance_nonfinite_value_count,
         ) = _count_nonfinite_provenance(raw_provenance_mass)
+        if provenance_nonfinite_row_count:
+            _warn_capture_corruption(
+                "provenance_nonfinite",
+                "MT q/k capture produced non-finite provenance"
+                f" ({provenance_nonfinite_row_count} rows,"
+                f" {provenance_nonfinite_value_count} values) on this chunk:"
+                " the captured attention payload is corrupt and the affected"
+                " draft tokens will be withheld. This is the known"
+                " cudagraph-replay capture corruption; keep"
+                " mt_vllm_enforce_eager=True (the default) and see"
+                " docs/limitations.md.",
+            )
         final_source_should_flush = self.policy.should_bypass_alignatt_for_final_source(
             source_map=source_map,
             stop_reason=finish_reason,
         )
 
         if operating_count == 0 or not source_rows:
+            if draft_token_count > 0 and observer_token_count == 0:
+                _warn_capture_corruption(
+                    "observer_empty",
+                    f"MT q/k observer captured no rows for a {draft_token_count}"
+                    "-token draft (stop_reason=alignatt:observer_empty): no"
+                    " tokens can be accepted from this chunk. Common causes:"
+                    " torch.compile eliding the capture op or a vLLM version"
+                    " change; keep mt_vllm_enforce_eager=True (the default)"
+                    " and see docs/limitations.md.",
+                )
             accepted_candidate_ids: list[int] = (
                 list(draft_generated_ids) if final_source_should_flush else []
             )

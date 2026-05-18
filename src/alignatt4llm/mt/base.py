@@ -2888,7 +2888,17 @@ class AlignAttDecoderPolicy:
 
 
 def load_alignatt_heads(path: str, *, top_k: int) -> list[AlignAttHead]:
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    from alignatt4llm.artifacts import DATA_ROOT_ENV_VAR, repo_data_root, resolve_data_path
+
+    resolved = Path(resolve_data_path(path))
+    if not resolved.exists():
+        raise FileNotFoundError(
+            f"AlignAtt heads file not found: {path!r} (also looked under"
+            f" {repo_data_root()}). Calibrated head payloads live in"
+            " data/alignatt_heads/ of the repository checkout; run from the"
+            f" repo root or set {DATA_ROOT_ENV_VAR} to the checkout path."
+        )
+    payload = json.loads(resolved.read_text(encoding="utf-8"))
     return [
         AlignAttHead(
             layer=int(head["layer"]),

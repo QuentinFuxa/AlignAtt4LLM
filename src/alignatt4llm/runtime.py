@@ -24,6 +24,7 @@ from alignatt4llm.artifacts import (
     DEFAULT_WAV_PATH,
     InferenceArtifacts,
     StreamUpdate,
+    resolve_data_path,
     write_inference_artifacts,
 )
 from alignatt4llm.emission import (
@@ -123,45 +124,104 @@ VALID_ALIGNATT_SOURCE_REGRESSION_ACTIONS = (
 _COMMIT_ABORT = object()
 
 
-def _resolve_hf_snapshot(repo_subpath: str, env_var: str | None = None) -> str:
-    if env_var:
-        override = os.environ.get(env_var)
-        if override:
-            return override
+# Pinned model snapshots. Resolution happens against the local Hugging Face
+# cache at import time (import must succeed on model-free CPU machines, e.g.
+# for the test suite), and existence is enforced with an actionable error at
+# engine-load time via require_local_model().
+PINNED_MODELS: dict[str, dict[str, str]] = {
+    "ASR (Qwen3-ASR-1.7B)": {
+        "repo_id": "Qwen/Qwen3-ASR-1.7B",
+        "revision": "7278e1e70fe206f11671096ffdd38061171dd6e5",
+        "env_var": "CASCADE_QWEN_ASR_SNAPSHOT",
+    },
+    "forced aligner (Qwen3-ForcedAligner-0.6B)": {
+        "repo_id": "Qwen/Qwen3-ForcedAligner-0.6B",
+        "revision": "c7cbfc2048c462b0d63a45797104fc9db3ad62b7",
+        "env_var": "CASCADE_QWEN_ALIGNER_SNAPSHOT",
+    },
+    "MT/ASR (gemma-4-E4B-it)": {
+        "repo_id": "google/gemma-4-E4B-it",
+        "revision": "83df0a889143b1dbfc61b591bbc639540fd9ce4c",
+        "env_var": "CASCADE_GEMMA_SNAPSHOT",
+    },
+    "MT (MiLMMT-46-4B-v0.1)": {
+        "repo_id": "xiaomi-research/MiLMMT-46-4B-v0.1",
+        "revision": "1341209df846d7b2f6a077090ca957e28656e3de",
+        "env_var": "CASCADE_MILMMT_SNAPSHOT",
+    },
+}
 
+
+def _hf_hub_roots() -> list[str]:
     hub_roots: list[str] = []
     for candidate in (
         os.environ.get("HF_HUB_CACHE"),
         os.path.join(os.environ.get("HF_HOME", ""), "hub") if os.environ.get("HF_HOME") else None,
-        "/home/.cache/huggingface/hub",
         os.path.join(os.path.expanduser("~/.cache/huggingface/hub")),
     ):
         if candidate and candidate not in hub_roots:
             hub_roots.append(candidate)
+    return hub_roots
 
-    candidates = [os.path.join(root, repo_subpath) for root in hub_roots]
+
+def _resolve_hf_snapshot(role: str) -> str:
+    spec = PINNED_MODELS[role]
+    override = os.environ.get(spec["env_var"])
+    if override:
+        return override
+
+    repo_subpath = os.path.join(
+        f"models--{spec['repo_id'].replace('/', '--')}",
+        "snapshots",
+        spec["revision"],
+    )
+    candidates = [os.path.join(root, repo_subpath) for root in _hf_hub_roots()]
     for candidate in candidates:
         if os.path.exists(candidate):
             return candidate
     return candidates[0]
 
 
-asr_model_name = _resolve_hf_snapshot(
-    "models--Qwen--Qwen3-ASR-1.7B/snapshots/7278e1e70fe206f11671096ffdd38061171dd6e5",
-    env_var="CASCADE_QWEN_ASR_SNAPSHOT",
-)
+def require_local_model(path: str, *, role: str) -> str:
+    """Fail with download instructions when a pinned local snapshot is absent.
+
+    Plain Hugging Face repo ids (non-absolute paths) pass through untouched:
+    vLLM resolves and downloads those itself.
+    """
+    if not os.path.isabs(path) or os.path.exists(path):
+        return path
+    spec = PINNED_MODELS.get(role)
+    lines = [
+        f"Model weights for {role} not found at: {path}",
+        "This runtime resolves pinned model snapshots from the local Hugging"
+        " Face cache (HF_HUB_CACHE / HF_HOME / ~/.cache/huggingface) and does"
+        " not download them automatically.",
+    ]
+    if spec is not None:
+        lines.append(
+            "Download it first:\n"
+            f"  huggingface-cli download {spec['repo_id']}"
+            f" --revision {spec['revision']}"
+        )
+        if spec["repo_id"].startswith("google/gemma"):
+            lines.append(
+                "Note: this Gemma model is gated; accept its license on"
+                " huggingface.co and `huggingface-cli login` before"
+                " downloading."
+            )
+        lines.append(
+            f"Or point {spec['env_var']} at an existing local snapshot"
+            " directory."
+        )
+    raise FileNotFoundError("\n".join(lines))
+
+
+asr_model_name = _resolve_hf_snapshot("ASR (Qwen3-ASR-1.7B)")
 forced_aligner_model_name = _resolve_hf_snapshot(
-    "models--Qwen--Qwen3-ForcedAligner-0.6B/snapshots/c7cbfc2048c462b0d63a45797104fc9db3ad62b7",
-    env_var="CASCADE_QWEN_ALIGNER_SNAPSHOT",
+    "forced aligner (Qwen3-ForcedAligner-0.6B)"
 )
-gemma_model_name = _resolve_hf_snapshot(
-    "models--google--gemma-4-E4B-it/snapshots/83df0a889143b1dbfc61b591bbc639540fd9ce4c",
-    env_var="CASCADE_GEMMA_SNAPSHOT",
-)
-milmmt_model_name = _resolve_hf_snapshot(
-    "models--xiaomi-research--MiLMMT-46-4B-v0.1/snapshots/1341209df846d7b2f6a077090ca957e28656e3de",
-    env_var="CASCADE_MILMMT_SNAPSHOT",
-)
+gemma_model_name = _resolve_hf_snapshot("MT/ASR (gemma-4-E4B-it)")
+milmmt_model_name = _resolve_hf_snapshot("MT (MiLMMT-46-4B-v0.1)")
 # Reference "bring your own LLM" model (see docs/adding_a_model.md). Defaults to
 # the HF repo id; override CASCADE_QWEN_MT_SNAPSHOT with a local snapshot path
 # when running fully offline.
@@ -179,25 +239,43 @@ def alignatt_heads_path_for(
     source_code = LANGUAGE_NAME_TO_CODE.get(source_lang, source_lang.lower())
     target_code = LANGUAGE_NAME_TO_CODE.get(target_lang, target_lang.lower())
     if mt_backend_name == "milmmt_vllm_alignatt":
-        return (
+        relative = (
             "data/alignatt_heads/"
             "translation_heads_xiaomi-research_MiLMMT-46-4B-v0_1_"
             f"{source_code}-{target_code}.json"
         )
-    if mt_backend_name == "qwen_vllm_alignatt":
-        return (
+    elif mt_backend_name == "qwen_vllm_alignatt":
+        relative = (
             "data/alignatt_heads/"
             "translation_heads_Qwen_Qwen3-1_7B_"
             f"{source_code}-{target_code}.json"
         )
-    return (
-        "data/alignatt_heads/"
-        f"translation_heads_google_gemma-4-E4B-it_{source_code}-{target_code}.json"
-    )
+    else:
+        relative = (
+            "data/alignatt_heads/"
+            f"translation_heads_google_gemma-4-E4B-it_{source_code}-{target_code}.json"
+        )
+    # Anchor to the repo data root so installed CLIs work from any CWD.
+    return resolve_data_path(relative)
 
 
 def target_lang_code_for(target_lang: str) -> str:
     return LANGUAGE_NAME_TO_CODE.get(target_lang, target_lang.lower())
+
+
+_MT_MODEL_ROLES = {
+    "gemma_vllm_alignatt": "MT/ASR (gemma-4-E4B-it)",
+    "milmmt_vllm_alignatt": "MT (MiLMMT-46-4B-v0.1)",
+}
+
+
+def require_mt_model_for_backend(mt_backend_name: str) -> str:
+    """Resolve the MT model for a backend, failing loudly if it is absent."""
+    model_name = mt_model_name_for_backend(mt_backend_name)
+    return require_local_model(
+        model_name,
+        role=_MT_MODEL_ROLES.get(mt_backend_name, mt_backend_name),
+    )
 
 
 def mt_model_name_for_backend(mt_backend_name: str) -> str:
@@ -331,7 +409,7 @@ class CascadeRuntimeConfig:
     # Gemma baseline path on a 40 GiB A100.
     # Eager execution is an observer-safety requirement as well: CUDA graph
     # replay (full AND piecewise) NaN-corrupts the captured q/k payload on the
-    # vLLM 0.22.1rc cu129 stack (58% of chunks; docs/status.md, 2026-06-09),
+    # vLLM 0.22.1rc cu129 stack (58% of chunks; docs/limitations.md, 2026-06-09),
     # and the artifact index quarantines such runs
     # (provenance_nonfinite_capture_corruption). mt_vllm_cudagraph_mode only
     # takes effect when mt_vllm_enforce_eager is explicitly disabled.
@@ -992,6 +1070,11 @@ def build_alignment_backend(
     if config.alignment_backend_name == "qwen_forced":
         from alignatt4llm.alignment.qwen_forced_backend import QwenAlignmentBackend
 
+        require_local_model(qwen_model_path, role="ASR (Qwen3-ASR-1.7B)")
+        require_local_model(
+            qwen_forced_aligner_model_path,
+            role="forced aligner (Qwen3-ForcedAligner-0.6B)",
+        )
         return QwenAlignmentBackend(
             asr_model_path=qwen_model_path,
             forced_aligner_model_path=qwen_forced_aligner_model_path,
@@ -1000,10 +1083,13 @@ def build_alignment_backend(
     if config.alignment_backend_name == "gemma_vllm_qk_fast":
         from alignatt4llm.alignment.gemma_vllm_asr_backend import GemmaVLLMASRBackend
 
+        require_local_model(gemma_path, role="MT/ASR (gemma-4-E4B-it)")
         return GemmaVLLMASRBackend(
             model_name=gemma_path,
             runtime_config=config,
-            audio_heads_path=config.gemma_audio_alignment_heads_path,
+            audio_heads_path=resolve_data_path(
+                config.gemma_audio_alignment_heads_path
+            ),
             audio_heads_top_k=int(config.gemma_audio_alignment_top_k_heads),
             filter_width=int(config.gemma_audio_alignment_filter_width),
             max_new_tokens=int(config.gemma_audio_alignment_max_new_tokens),
@@ -1049,7 +1135,7 @@ class LoadedModelBundle:
         current_fp = self.config.mt_backend_fingerprint()
         if self.mt_backend is None or self._mt_backend_fp != current_fp:
             self.mt_backend = build_mt_backend(
-                model_name=mt_model_name_for_backend(self.config.mt_backend_name),
+                model_name=require_mt_model_for_backend(self.config.mt_backend_name),
                 runtime_config=self.config,
             )
             self.mt_backend.load()

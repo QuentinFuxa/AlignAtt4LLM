@@ -28,7 +28,9 @@ _HELP: dict[str, str] = {
           --chunk-ms MS                    streaming chunk size
           --preset NAME                    runtime preset, e.g. gemma_low_latency
           --alignment-backend-name NAME    qwen_forced or gemma_vllm_qk_fast
-          --mt-backend-name NAME           gemma_vllm_alignatt or milmmt_vllm_alignatt
+          --mt-backend-name NAME           gemma_vllm_alignatt, milmmt_vllm_alignatt,
+                                           or qwen_vllm_alignatt
+          --trace-attention                print per-token attention trace on stderr
     """,
     "alignatt-compare": """
         usage: alignatt-compare [--wav WAV] [--output-dir DIR] [options]
@@ -43,7 +45,8 @@ _HELP: dict[str, str] = {
           --target {de,it,zh}              target language code
           --chunk-ms MS                    streaming chunk size
           --alignment-backend-name NAME    run one backend instead of all stable backends
-          --mt-backend-name NAME           Gemma or MiLMMT MT backend
+          --mt-backend-name NAME           gemma_vllm_alignatt, milmmt_vllm_alignatt,
+                                           or qwen_vllm_alignatt
     """,
     "alignatt-eval": """
         usage: alignatt-eval --output-dir DIR [options]
@@ -69,9 +72,14 @@ _HELP: dict[str, str] = {
           gemma_high_latency
     """,
     "alignatt-gemma-asr": """
-        usage: alignatt-gemma-asr --wav WAV [options]
+        usage: alignatt-gemma-asr --wavs WAV [WAV ...] --output-dir DIR [options]
 
-        Run the Gemma AlignAtt ASR research harness on one local audio file.
+        Run the Gemma AlignAtt ASR research harness on local audio files.
+
+        common options:
+          --wavs PATH [PATH ...]           input WAV files
+          --output-dir DIR                 artifact output directory
+          --trace-attention                print per-token attention trace on stderr
     """,
     "alignatt-mt-parity": """
         usage: alignatt-mt-parity [options]

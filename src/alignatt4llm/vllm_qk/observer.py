@@ -549,6 +549,15 @@ def configure_mt_qk_observer_on_model(
         if attn is None:
             raise RuntimeError(f"Layer {layer_idx} has no self_attn module.")
         assert_supported_attention_module(attn, spec)
+        if bool(getattr(attn, "is_kv_shared_layer", False)):
+            raise ValueError(
+                f"AlignAtt head selection includes layer {layer_idx}, which"
+                " is a KV-shared attention layer (Gemma4 KV sharing): it"
+                " computes no K of its own, so q/k capture on it would"
+                " reconstruct attention against another layer's keys."
+                " Re-calibrate the head payload excluding KV-shared layers,"
+                " or drop these heads before configuring the observer."
+            )
         device = attn.qkv_proj.weight.device
 
         selected_kv_heads = [

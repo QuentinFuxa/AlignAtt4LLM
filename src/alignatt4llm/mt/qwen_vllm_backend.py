@@ -53,6 +53,7 @@ QWEN_SPEC = VLLMAttentionSpec(
         "rotary_emb",
         "attn",
         "o_proj",
+        "scaling",
     ),
     make_patched_forward=make_standard_decoder_patched_forward,
 )

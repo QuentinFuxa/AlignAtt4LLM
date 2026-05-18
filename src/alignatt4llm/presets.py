@@ -78,7 +78,7 @@ class RuntimePreset:
     translation_acceptance_policy: str = "alignatt"
     translation_static_cutoff_units: int = 0
     # Capture-safety default: cudagraph replay corrupts the MT attention
-    # observer's q/k payload (docs/status.md, 2026-06-09), so presets run the
+    # observer's q/k payload (docs/limitations.md, 2026-06-09), so presets run the
     # MT engine eagerly. The cudagraph mode only applies when eager is
     # explicitly disabled.
     mt_vllm_enforce_eager: bool = True

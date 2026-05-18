@@ -24,12 +24,17 @@ echo "Upgrading to a vLLM build compatible with the CUDA 12.9 stack"
 # Pin the exact cu129 wheel. An unpinned `-U vllm` resolves to the newest
 # version across all indexes, and PyPI stable wheels are CUDA 13 builds that
 # fail at runtime with `libcudart.so.13 not found` on this cu129 torch stack
-# (observed 2026-06-09 with vllm==0.22.1). If this dev wheel rotates out of
-# the nightly index, pick the newest version listed at
-# https://wheels.vllm.ai/nightly/cu129/vllm/ and update the pin.
+# (observed 2026-06-09 with vllm==0.22.1).
+#
+# The nightly index (https://wheels.vllm.ai/nightly/cu129/vllm/) rotates old
+# builds out (the pin below rotated out by 2026-07-02), so we install from
+# vLLM's per-commit index, which is keyed by the full commit SHA embedded in
+# the version's `+g<short-sha>` suffix and does not rotate. To move the pin,
+# update both VLLM_CU129_VERSION and VLLM_COMMIT_SHA to a matching pair.
 VLLM_CU129_VERSION="${VLLM_CU129_VERSION:-0.22.1rc1.dev316+g3d119f78f.cu129}"
+VLLM_COMMIT_SHA="${VLLM_COMMIT_SHA:-3d119f78f77cd460c39a1c8ba8303724ad1f88bc}"
 uv pip install --python "$PYTHON_BIN" "vllm==${VLLM_CU129_VERSION}" --pre \
-  --extra-index-url https://wheels.vllm.ai/nightly/cu129 \
+  --extra-index-url "https://wheels.vllm.ai/${VLLM_COMMIT_SHA}/cu129" \
   --extra-index-url https://download.pytorch.org/whl/cu129 \
   --index-strategy unsafe-best-match
 

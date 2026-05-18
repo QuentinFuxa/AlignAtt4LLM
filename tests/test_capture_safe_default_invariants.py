@@ -1,6 +1,6 @@
 """Pin the capture-safe MT vLLM engine defaults.
 
-docs/status.md (2026-06-09) records that CUDA graph replay — full AND
+docs/limitations.md (2026-06-09 evidence) records that CUDA graph replay — full AND
 piecewise — NaN-corrupts the MT attention observer's captured q/k payload on
 the vLLM 0.22.1rc cu129 stack (58% of all chunks, garbage argmax positions),
 while enforce-eager eliminates the corruption completely. The artifact index
@@ -41,7 +41,7 @@ def test_runtime_config_defaults_to_eager_mt_engine():
     assert CascadeRuntimeConfig().mt_vllm_enforce_eager is True, (
         "CascadeRuntimeConfig must default mt_vllm_enforce_eager=True: "
         "cudagraph replay corrupts MT observer capture and the artifact "
-        "index quarantines such runs (docs/status.md, 2026-06-09)."
+        "index quarantines such runs (docs/limitations.md, 2026-06-09)."
     )
 
 

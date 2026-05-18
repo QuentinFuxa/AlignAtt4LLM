@@ -3,12 +3,46 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 from alignatt4llm.text_surface import (
     prediction_text_from_target_surface,
 )
+
+
+DATA_ROOT_ENV_VAR = "ALIGNATT4LLM_DATA_ROOT"
+
+
+def repo_data_root() -> Path:
+    """Root against which repo-relative ``data/...`` paths are resolved.
+
+    Defaults to the repository root for a src-layout checkout (two levels
+    above this package). Override with ``ALIGNATT4LLM_DATA_ROOT`` when the
+    package is installed away from its ``data/`` tree.
+    """
+    override = os.environ.get(DATA_ROOT_ENV_VAR)
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parents[2]
+
+
+def resolve_data_path(path: str | Path) -> str:
+    """Resolve a repo-relative data path independently of the CWD.
+
+    Absolute paths and paths that exist relative to the CWD pass through
+    unchanged; otherwise the path is anchored at ``repo_data_root()`` when
+    that candidate exists. Unresolvable paths are returned unchanged so
+    callers surface the original in their error message.
+    """
+    candidate = Path(path)
+    if candidate.is_absolute() or candidate.exists():
+        return str(candidate)
+    anchored = repo_data_root() / candidate
+    if anchored.exists():
+        return str(anchored)
+    return str(candidate)
 
 
 ARTIFACT_SCHEMA_VERSION = "cascade_v1"
