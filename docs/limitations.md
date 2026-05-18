@@ -26,16 +26,13 @@ is pinned by `tests/test_capture_safe_default_invariants.py`. The
 `mt_vllm_cudagraph_mode` knob only applies when eager is explicitly disabled,
 which is not a supported configuration for scored runs.
 
-Implication for the paper's speed figure: the published 2.5x vLLM-vs-HF-eager
-ms/token comparison was recorded with full CUDA graphs *before* this failure
-mode was understood, while all quality results ran eagerly. The capture-safe
-eager configuration measures **1.45x** over HF eager (same day, same GPU,
-same harness, 2026-07-02); see
-[docs/benchmarks/README.md](benchmarks/README.md) for both artifacts and the
-honest framing. Root-causing the corruption (buffer aliasing across replays
+Implication for the speed figures: the graphed capture path is fast — the
+paper's 2.5x, re-measured at **5.35x** on 2026-07-02 hardware — but scored
+runs use the capture-safe eager configuration (1.45x measured the same day);
+see [docs/benchmarks/README.md](benchmarks/README.md) for all three
+artifacts. Root-causing the corruption (buffer aliasing across replays
 vs. the custom-op mutation contract vs. profiler-phase capture) is open
-follow-up work; fixing it would let the 2.5x-class speed and the scored
-quality coincide.
+follow-up work; fixing it brings the 5x-class speed to scored runs.
 
 ## vLLM version sensitivity
 
