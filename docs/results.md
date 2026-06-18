@@ -25,10 +25,8 @@ High-regime dev logs (`chunk_ms=1500`):
 - en->it: BLEU `44.46`, chrF `70.06`, XCOMET-XL `0.8407`, LongYAAL CU `3484.3 ms`
 - en->zh: BLEU `39.86`, chrF `37.81`, XCOMET-XL `0.7781`, LongYAAL CU `3271.9 ms`
 
-See the arXiv paper at https://arxiv.org/abs/2606.03967,
-`docs/archive/2026-05-submission.md`, and
-`docs/archive/2026-05-submission-scores.json` for the compact submission-era
-record.
+See the arXiv paper at https://arxiv.org/abs/2606.03967 for the full
+submission-era record.
 
 ## EN->ZH MiLMMT Calibration Anchor
 

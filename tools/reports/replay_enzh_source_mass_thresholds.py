@@ -40,11 +40,11 @@ from tools.reports.report_enzh_source_mass_thresholds import (  # noqa: E402
 DEFAULT_ARTIFACT_DIR = (
     REPO_ROOT
     / "outputs"
-    / "diagnostics_jarvislab_20260606"
+    / "diagnostics_20260606"
     / "enzh_milmmt_chunk640_argmaxonly_soft003_mini3_20260606"
 )
 DEFAULT_OUTPUT_ROOT = (
-    REPO_ROOT / "outputs" / "diagnostics_jarvislab_20260606" / "offline_replay_source_mass"
+    REPO_ROOT / "outputs" / "diagnostics_20260606" / "offline_replay_source_mass"
 )
 DEFAULT_THRESHOLDS = (0.0005, 0.001, 0.0015, 0.002, 0.0025, 0.003)
 UNIT_REPLAY_VARIANTS = {"unit_mass", "unit_mass_source_bearing"}

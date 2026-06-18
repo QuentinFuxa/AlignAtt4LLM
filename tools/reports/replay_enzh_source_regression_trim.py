@@ -49,13 +49,13 @@ from tools.reports.report_enzh_source_regression_diagnostics import (  # noqa: E
 DEFAULT_ARTIFACT_DIR = (
     REPO_ROOT
     / "outputs"
-    / "diagnostics_jarvislab_20260606"
+    / "diagnostics_20260606"
     / "enzh_milmmt_chunk640_maxreg1_recent1_full21_20260606"
 )
 DEFAULT_OUTPUT_DIR = (
     REPO_ROOT
     / "outputs"
-    / "diagnostics_jarvislab_20260606"
+    / "diagnostics_20260606"
     / "offline_replay_srtrimunrecovered_full21_20260607"
 )
 

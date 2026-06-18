@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DIAGNOSTICS_ROOT = REPO_ROOT / "outputs" / "diagnostics_jarvislab_20260606"
+DIAGNOSTICS_ROOT = REPO_ROOT / "outputs" / "diagnostics_20260606"
 BASE_RUNS = (
     "gemma_zh_clean_eager_chunk960_full21_20260610",
     "gemma_zh_clean_eager_chunk1280_full21_20260610",

@@ -44,7 +44,7 @@ from tools.reports.report_attention_confidence_separability import (  # noqa: E4
     spearman,
 )
 
-DIAGNOSTICS_ROOT = REPO_ROOT / "outputs" / "diagnostics_jarvislab_20260606"
+DIAGNOSTICS_ROOT = REPO_ROOT / "outputs" / "diagnostics_20260606"
 DEFAULT_RUN_DIRS = (
     DIAGNOSTICS_ROOT / "gemma_zh_clean_eager_chunk960_full21_20260610",
     DIAGNOSTICS_ROOT / "gemma_zh_clean_eager_chunk1280_full21_20260610",

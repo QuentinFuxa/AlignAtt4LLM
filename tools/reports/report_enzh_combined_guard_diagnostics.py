@@ -24,7 +24,7 @@ from tools.reports.report_enzh_source_regression_diagnostics import (  # noqa: E
 
 
 DEFAULT_INDEX = Path(
-    "outputs/diagnostics_jarvislab_20260606/diagnostics_artifact_index.tsv"
+    "outputs/diagnostics_20260606/diagnostics_artifact_index.tsv"
 )
 DEFAULT_OUTPUT_DIR = Path("outputs/plots")
 

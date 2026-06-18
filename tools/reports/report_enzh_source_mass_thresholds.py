@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INDEX = (
     REPO_ROOT
     / "outputs"
-    / "diagnostics_jarvislab_20260606"
+    / "diagnostics_20260606"
     / "diagnostics_artifact_index.json"
 )
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs" / "plots"

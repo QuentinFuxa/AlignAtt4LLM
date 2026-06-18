@@ -51,7 +51,7 @@ from tools.reports.report_unit_concentration_separability import (  # noqa: E402
     accepted_unit_feature_spans,
 )
 
-DIAGNOSTICS_ROOT = REPO_ROOT / "outputs" / "diagnostics_jarvislab_20260606"
+DIAGNOSTICS_ROOT = REPO_ROOT / "outputs" / "diagnostics_20260606"
 PRIMARY_PAIR = (
     "gemma_zh_clean_eager_chunk1280_full21_20260610",
     "gemma_zh_unitconf_top16_conf06875_full21_20260611",

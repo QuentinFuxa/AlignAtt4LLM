@@ -28,7 +28,7 @@ from tools.reports.plot_enzh_quality_latency_tradeoff import (
 DEFAULT_INDEX = (
     REPO_ROOT
     / "outputs"
-    / "diagnostics_jarvislab_20260606"
+    / "diagnostics_20260606"
     / "diagnostics_artifact_index.json"
 )
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs" / "plots"
