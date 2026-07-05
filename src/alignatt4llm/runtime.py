@@ -41,7 +41,10 @@ from alignatt4llm.source_frontier import (
     normalize_word_timestamps_ms,
 )
 from alignatt4llm.source_text import NormalizedSourceText, normalize_source_text_for_mt
-from alignatt4llm.text_surface import normalize_incremental_target_text
+from alignatt4llm.text_surface import (
+    normalize_incremental_target_text,
+    split_public_emission_units,
+)
 from alignatt4llm.translation_variants import (
     FOUNDATIONAL_TRANSLATION_VARIANT_ID,
     RenderedTranslationPrompt,
@@ -306,6 +309,14 @@ class CascadeRuntimeConfig:
     translation_alignatt_source_lcp_stability: bool = False
     translation_alignatt_source_lcp_append_slack_units: int = 0
     translation_alignatt_border_margin: int = 1
+    # Commit fast path: when only the accessible frontier advanced (the
+    # source text itself is unchanged, e.g. an upstream ASR committed words
+    # that were already visible as the unstable tail), re-cut the cached
+    # draft against the new frontier instead of running a full MT call.
+    # Held target tokens then release in RPC time rather than draft time.
+    # Off by default: the audio cascade re-drafts on frontier advances and
+    # existing scored runs stay byte-reproducible.
+    translation_alignatt_commit_fast_path: bool = False
     translation_alignatt_min_source_mass: float = 0.0
     # Soft frontier: with the default 0.0, any source argmax beyond the
     # accessible frontier blocks the token. Raising this accepts a beyond-
@@ -763,6 +774,10 @@ class PartialTranslationState:
     source_prefix: str = ""
     draft_target: str = ""
     draft_token_ids: tuple[int, ...] = ()
+    # Raw generated ids of the last full draft. The commit fast path re-cuts
+    # this cached draft against an advanced frontier without a new MT call;
+    # the alignatt metadata arrays index a prefix of exactly these ids.
+    draft_generated_token_ids: tuple[int, ...] = ()
     accepted_target: str = ""
     accepted_token_ids: tuple[int, ...] = ()
     accepted_generated_token_ids: tuple[int, ...] = ()
@@ -1505,6 +1520,129 @@ class TranslationUnitManager:
             stop_reason="alignatt:source_bounded_committed_prefill",
         )
 
+    def fast_forward_acceptance(
+        self,
+        *,
+        source_text: str,
+        source_frontier: SourceAccessibilityFrontier,
+    ) -> MTBackendResult | None:
+        """Advance the accepted partial prefix from the cached draft alignments.
+
+        Applies only when the source text is byte-identical to the previous
+        partial update and only the accessible frontier moved (an upstream
+        committed words that were already visible as inaccessible tail). The
+        cached draft and its per-token source argmaxes are then still valid:
+        re-cutting them against the new frontier releases held target tokens
+        without an MT engine call. Deliberately stricter than the full
+        AlignAtt policy (argmax strictly inside the frontier, no border
+        margin, cut only at complete public emission units); returns ``None``
+        whenever the extension cannot be proven safe, and the caller falls
+        back to a full partial translate.
+        """
+        previous = self.state.partial_translation
+        if previous.source_prefix != source_text.strip():
+            return None
+        if not previous.draft_generated_token_ids:
+            return None
+        aligned_source_unit_indices = self._metadata_source_unit_indices(
+            previous.last_alignatt_metadata
+        )
+        if aligned_source_unit_indices is None:
+            return None
+        mt_backend = self.session.bundle.ensure_mt_backend()
+        if not hasattr(mt_backend, "decode_candidate_text"):
+            return None
+
+        started = perf_counter()
+        accessible_unit_count = int(source_frontier.accessible_unit_count)
+        draft_ids = previous.draft_generated_token_ids
+        max_cut = 0
+        for token_index in range(min(len(aligned_source_unit_indices), len(draft_ids))):
+            unit_index = aligned_source_unit_indices[token_index]
+            if unit_index is not None and int(unit_index) >= accessible_unit_count:
+                break
+            max_cut = token_index + 1
+        if max_cut == 0:
+            return None
+
+        variant = get_translation_variant(self.config)
+        target_code = target_lang_code_for(self.config.target_lang)
+
+        def decode_prefix(count: int) -> str:
+            return mt_backend.decode_candidate_text(
+                generated_ids=draft_ids[:count],
+                assistant_prefill="",
+                variant=variant,
+                is_partial=True,
+            ).strip()
+
+        accepted_text = ""
+        accepted_generated_ids: tuple[int, ...] = ()
+        for cut in range(max_cut, 0, -1):
+            candidate_text = decode_prefix(cut)
+            if not candidate_text:
+                continue
+            if not candidate_text.startswith(previous.accepted_target):
+                continue
+            if cut < len(draft_ids):
+                # Reject a cut that splits a public emission unit: the same
+                # prefix decoded one token further must extend it unit-wise.
+                candidate_units = split_public_emission_units(
+                    candidate_text, target_lang_code=target_code
+                )
+                extended_units = split_public_emission_units(
+                    decode_prefix(cut + 1), target_lang_code=target_code
+                )
+                if (
+                    len(extended_units) <= len(candidate_units)
+                    or extended_units[: len(candidate_units)] != candidate_units
+                ):
+                    continue
+            accepted_text = candidate_text
+            accepted_generated_ids = draft_ids[:cut]
+            break
+        if not accepted_text or accepted_text == previous.accepted_target:
+            return None
+
+        accepted_token_ids = self._encode_semantic_target_ids(accepted_text)
+        metadata = dict(previous.last_alignatt_metadata or {})
+        metadata.update(
+            {
+                "commit_fast_path": True,
+                "accessible_source_unit_count": accessible_unit_count,
+                "source_unit_count": len(source_frontier.units),
+            }
+        )
+        self.state.partial_translation = PartialTranslationState(
+            source_prefix=previous.source_prefix,
+            draft_target=previous.draft_target,
+            draft_token_ids=previous.draft_token_ids,
+            draft_generated_token_ids=previous.draft_generated_token_ids,
+            accepted_target=accepted_text,
+            accepted_token_ids=accepted_token_ids,
+            accepted_generated_token_ids=accepted_generated_ids,
+            source_accessible_unit_count=accessible_unit_count,
+            source_total_unit_count=len(source_frontier.units),
+            last_num_cached_tokens=previous.last_num_cached_tokens,
+            last_prompt_num_tokens=previous.last_prompt_num_tokens,
+            last_accept_audio_seconds=self.session.current_audio_seconds(),
+            last_mt_audio_seconds=previous.last_mt_audio_seconds,
+            last_alignatt_metadata=metadata,
+            blocked_source_local_position=previous.blocked_source_local_position,
+            blocked_source_unit_index=previous.blocked_source_unit_index,
+        )
+        return MTBackendResult(
+            draft_text=previous.draft_target,
+            acceptance_text=accepted_text,
+            draft_generated_token_ids=previous.draft_generated_token_ids,
+            accepted_generated_token_ids=accepted_generated_ids,
+            draft_token_ids=previous.draft_token_ids,
+            accepted_token_ids=accepted_token_ids,
+            stop_reason="alignatt:commit_fast_path",
+            alignatt_metadata=metadata,
+            timings_ms={"commit_fast_path": (perf_counter() - started) * 1000.0},
+        )
+
     def update_partial_state(
         self,
         source_text: str,
@@ -1527,6 +1665,9 @@ class TranslationUnitManager:
             source_prefix=source_text.strip(),
             draft_target=result.draft_text,
             draft_token_ids=tuple(int(token_id) for token_id in result.draft_token_ids),
+            draft_generated_token_ids=tuple(
+                int(token_id) for token_id in result.draft_generated_token_ids
+            ),
             accepted_target=accepted_target,
             accepted_token_ids=accepted_token_ids,
             accepted_generated_token_ids=accepted_generated_token_ids,
@@ -1612,7 +1753,19 @@ class TranslationUnitManager:
                 source_text=normalized_partial_source.text,
                 source_frontier=partial_frontier,
             )
-            if should_run_partial:
+            fast_path_result: MTBackendResult | None = None
+            if (
+                should_run_partial
+                and scheduler_reason == "accessible_frontier_advanced"
+                and bool(self.config.translation_alignatt_commit_fast_path)
+            ):
+                fast_path_result = self.fast_forward_acceptance(
+                    source_text=normalized_partial_source.text,
+                    source_frontier=partial_frontier,
+                )
+            if fast_path_result is not None:
+                partial_result = fast_path_result
+            elif should_run_partial:
                 partial_result = self.session.translate_with_mt(
                     normalized_partial_source.text,
                     source_frontier=partial_frontier,

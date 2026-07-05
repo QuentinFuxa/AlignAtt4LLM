@@ -19,6 +19,7 @@ alignatt-eval = "alignatt4llm.cli.entrypoints:evaluate_main"
 alignatt-preset = "alignatt4llm.cli.entrypoints:preset_main"
 alignatt-gemma-asr = "alignatt4llm.cli.entrypoints:gemma_asr_main"
 alignatt-mt-parity = "alignatt4llm.cli.entrypoints:mt_parity_main"
+alignatt-mt-server = "alignatt4llm.mt_server:main"
 
 [dependency-groups]
 dev = [
@@ -38,7 +39,8 @@ inference = [
   "pycryptodome",
   "mweralign",
   "cloudpickle",
-  "qwen_asr"
+  "qwen_asr",
+  "websockets",
 ]
 evaluation = [
   "torch==2.10.0",
