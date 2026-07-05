@@ -91,6 +91,7 @@ def main() -> None:
                     emitted = text
                 return response
 
+    last_sent = None
     while committed_upto < len(words):
         # advance the stream clock; words older than COMMIT_LAG commit
         stream_s = now_stream_s()
@@ -101,24 +102,31 @@ def main() -> None:
         ):
             new_committed_upto += 1
         tail_upto = min(len(words), max(new_committed_upto, int(stream_s * WORDS_PER_SECOND)))
-        if new_committed_upto == committed_upto and tail_upto <= committed_upto:
-            time.sleep(0.05)
-            continue
-
         commit_advanced = new_committed_upto > committed_upto
         committed_upto = new_committed_upto
 
-        # utterance boundary: last committed word carries sentence punctuation
-        is_final = (
-            commit_advanced
-            and committed_upto > utterance_start
-            and words[committed_upto - 1].rstrip('"').endswith((".", "!", "?"))
-        )
+        # utterance boundary: first sentence punctuation among committed words
+        final_boundary = None
+        for i in range(utterance_start, committed_upto):
+            if words[i].rstrip('"\'').endswith((".", "!", "?")):
+                final_boundary = i + 1
+                break
+        is_final = final_boundary is not None
+        utt_end = final_boundary if is_final else committed_upto
+
+        if (utt_end, tail_upto if not is_final else -1, utterance_start) == last_sent:
+            time.sleep(0.05)
+            continue
+        last_sent = (utt_end, tail_upto if not is_final else -1, utterance_start)
+
         utt_words = [
             [words[i], word_end_s[i] * 1000.0 - 300.0, word_end_s[i] * 1000.0]
-            for i in range(utterance_start, committed_upto)
+            for i in range(utterance_start, utt_end)
         ]
-        tail_words = [[words[i], None, None] for i in range(committed_upto, tail_upto)]
+        tail_words = (
+            [] if is_final
+            else [[words[i], None, None] for i in range(committed_upto, tail_upto)]
+        )
         update = {
             "type": "update",
             "utterance_id": len([e for e in events if e.get("final")]),
@@ -140,7 +148,7 @@ def main() -> None:
         })
         if is_final:
             print(f"[{stream_s:6.2f}s] FINAL: {response.get('committed_text')!r}")
-            utterance_start = committed_upto
+            utterance_start = utt_end
             emitted = ""
         else:
             print(

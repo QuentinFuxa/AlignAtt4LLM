@@ -394,3 +394,35 @@ def test_ws_end_to_end_session():
                 assert final["committed_text"] == "HELLO THERE"
 
     asyncio.run(scenario())
+
+
+# ---------------------------------------------------------------------------
+# prefill glue regression (word boundary lost at the acceptance seam)
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_output_preserves_prefill_boundary_space():
+    from alignatt4llm.runtime import CascadeRuntimeConfig, get_translation_variant
+
+    variant = get_translation_variant(CascadeRuntimeConfig())
+    # tokenizer decode of the continuation carries a leading space
+    glued = variant.normalize_output(
+        generated_text=" kausale Encoder",
+        assistant_prefill="Der",
+        is_partial=True,
+    )
+    assert glued == "Der kausale Encoder"
+    # intra-word continuation (no leading space) must stay glued
+    compound = variant.normalize_output(
+        generated_text="verarbeitung",
+        assistant_prefill="Entwurfs",
+        is_partial=True,
+    )
+    assert compound == "Entwurfsverarbeitung"
+    # model restart repeating the accepted suffix is still trimmed
+    trimmed = variant.normalize_output(
+        generated_text="Der kausale Encoder",
+        assistant_prefill="Der kausale",
+        is_partial=True,
+    )
+    assert trimmed == "Der kausale Encoder"

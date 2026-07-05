@@ -95,7 +95,11 @@ def strip_repeated_accepted_prefix(
             continue
         if not _has_enough_overlap_content(overlap):
             continue
-        return continuation[overlap_len:].lstrip()
+        # Keep the remainder's leading space: it is the word boundary between
+        # the accepted prefix and the continuation (the text is already
+        # normalized, so at most one space can be present). Stripping it made
+        # the prefill glue read "Der kausaleEncoder".
+        return continuation[overlap_len:]
 
     bridge_len = _leading_punctuation_span(continuation)
     if bridge_len <= 0:

@@ -232,6 +232,19 @@ class TranslationVariant:
                 accepted_prefix=assistant_prefill,
                 generated_continuation=candidate,
             )
+            # strip_repeated_accepted_prefix normalizes the continuation,
+            # which eats the leading space the tokenizer generated at the
+            # prefill boundary; the glue then reads "Derkausale". Restore it
+            # only when nothing was trimmed from the front (a trimmed overlap
+            # already consumed the boundary), so CJK output and intra-word
+            # continuations stay byte-identical.
+            if (
+                continuation
+                and not continuation[0].isspace()
+                and candidate[:1].isspace()
+                and normalize_incremental_target_text(candidate) == continuation
+            ):
+                continuation = " " + continuation
             return normalize_incremental_target_text(assistant_prefill + continuation)
         return normalize_incremental_target_text(candidate)
 
