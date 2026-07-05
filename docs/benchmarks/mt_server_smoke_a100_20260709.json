@@ -1,0 +1,153 @@
+{
+  "summary": {
+    "events": 14,
+    "finals": 6,
+    "retractions": 0,
+    "fast_path_events": 0,
+    "fast_path_rtt_ms_median": null,
+    "commit_rtt_ms_median": 730.5,
+    "rtt_ms_p95": 989.3
+  },
+  "events": [
+    {
+      "stream_s": 0.0,
+      "committed_words": 0,
+      "tail_words": 0,
+      "final": false,
+      "stop_reason": null,
+      "rtt_ms": 0.7,
+      "committed_text": "",
+      "commit_advanced": false
+    },
+    {
+      "stream_s": 0.6,
+      "committed_words": 0,
+      "tail_words": 1,
+      "final": false,
+      "stop_reason": "stop",
+      "rtt_ms": 146.9,
+      "committed_text": "",
+      "commit_advanced": false
+    },
+    {
+      "stream_s": 1.59,
+      "committed_words": 0,
+      "tail_words": 3,
+      "final": false,
+      "stop_reason": "alignatt:source_frontier",
+      "rtt_ms": 329.3,
+      "committed_text": "Der",
+      "commit_advanced": false
+    },
+    {
+      "stream_s": 3.31,
+      "committed_words": 3,
+      "tail_words": 4,
+      "final": false,
+      "stop_reason": "alignatt:source_frontier",
+      "rtt_ms": 495.4,
+      "committed_text": "Der kausale Encoder",
+      "commit_advanced": true
+    },
+    {
+      "stream_s": 5.69,
+      "committed_words": 8,
+      "tail_words": 5,
+      "final": false,
+      "stop_reason": "alignatt:source_frontier",
+      "rtt_ms": 712.3,
+      "committed_text": "Der kausale Encoder verarbeitet jeden Audioblock genau einmal. Das",
+      "commit_advanced": true
+    },
+    {
+      "stream_s": 8.94,
+      "committed_words": 16,
+      "tail_words": 0,
+      "final": true,
+      "stop_reason": null,
+      "rtt_ms": 92.3,
+      "committed_text": "Der kausale Encoder verarbeitet jeden Audioblock genau einmal. Das",
+      "commit_advanced": true
+    },
+    {
+      "stream_s": 9.71,
+      "committed_words": 9,
+      "tail_words": 5,
+      "final": false,
+      "stop_reason": "alignatt:source_frontier",
+      "rtt_ms": 744.6,
+      "committed_text": "Das hält die Rechenkosten konstant, während der Stream",
+      "commit_advanced": true
+    },
+    {
+      "stream_s": 13.09,
+      "committed_words": 17,
+      "tail_words": 0,
+      "final": true,
+      "stop_reason": null,
+      "rtt_ms": 223.6,
+      "committed_text": "Das hält die Rechenkosten konstant, während der Stream wächst.",
+      "commit_advanced": true
+    },
+    {
+      "stream_s": 14.38,
+      "committed_words": 10,
+      "tail_words": 5,
+      "final": false,
+      "stop_reason": "length",
+      "rtt_ms": 730.5,
+      "committed_text": "Die Aufmerksamkeitsköpfe im Decoder verfolgen, welche",
+      "commit_advanced": true
+    },
+    {
+      "stream_s": 17.71,
+      "committed_words": 18,
+      "tail_words": 0,
+      "final": true,
+      "stop_reason": null,
+      "rtt_ms": 462.5,
+      "committed_text": "Die Aufmerksamkeitsköpfe im Decoder verfolgen, welche Quellwörter übersetzt werden.",
+      "commit_advanced": true
+    },
+    {
+      "stream_s": 19.96,
+      "committed_words": 12,
+      "tail_words": 4,
+      "final": false,
+      "stop_reason": "alignatt:source_frontier",
+      "rtt_ms": 753.0,
+      "committed_text": "Die Richtlinie verpflichtet sich",
+      "commit_advanced": true
+    },
+    {
+      "stream_s": 23.37,
+      "committed_words": 20,
+      "tail_words": 0,
+      "final": true,
+      "stop_reason": null,
+      "rtt_ms": 918.5,
+      "committed_text": "Die Richtlinie verpflichtet sich nur zu Ziel-Tokens, deren Aufmerksamkeit auf verpflichtete Quellwörter fällt.",
+      "commit_advanced": true
+    },
+    {
+      "stream_s": 27.44,
+      "committed_words": 17,
+      "tail_words": 0,
+      "final": true,
+      "stop_reason": null,
+      "rtt_ms": 1057.3,
+      "committed_text": "Alles andere bleibt im Entwurfs-Puffer, bis die Transkription aufgeholt hat.",
+      "commit_advanced": true
+    },
+    {
+      "stream_s": 32.07,
+      "committed_words": 9,
+      "tail_words": 0,
+      "final": true,
+      "stop_reason": null,
+      "rtt_ms": 989.3,
+      "committed_text": "Dieses Design wandelt die Erkennungslatenz in Übersetzungsspekulationszeit um.",
+      "commit_advanced": true
+    }
+  ]
+}
