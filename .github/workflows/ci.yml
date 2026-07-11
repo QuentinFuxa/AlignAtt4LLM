@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      # The maintained test suite is CPU-only and must run WITHOUT vLLM
+      # (one test asserts the resolver tolerates its absence). The full
+      # inference stack stays out of CI: see tools/bootstrap/.
+      - name: Install package with test deps
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e . numpy websockets pytest
+
+      - name: Run test suite
+        run: pytest -q tests/
