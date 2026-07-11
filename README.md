@@ -61,6 +61,14 @@ Details and full tables are in [Results](docs/results.md) and [Benchmarks](docs/
 
 The IWSLT implementation is end-to-end: it includes ASR, chunk-synchronous runtime code (synchronicity comes from the requirement to use [SimulStream](https://arxiv.org/abs/2512.17648)), and MT. This makes the full ASR + MT cascade runnable from audio input to simultaneous translation output.
 
+## Use with WhisperLiveKit
+
+The MT half also serves external ASR frontends over WebSocket: `alignatt-mt-server` receives committed source words (plus, optionally, the unstable hypothesis tail) and returns append-only translation deltas, releasing held target tokens on upstream commits without re-drafting. [WhisperLiveKit](https://github.com/QuentinFuxa/WhisperLiveKit) is the reference client (`--translation-backend alignatt`). Protocol spec: [docs/mt_server_protocol.md](docs/mt_server_protocol.md).
+
+```bash
+alignatt-mt-server --preset gemma_low_latency --port 8765
+```
+
 ## Install
 
 ```bash
